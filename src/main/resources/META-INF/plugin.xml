@@ -2,7 +2,7 @@
     <id>com.avanza.astrix.intellij</id>
     <name>IntelliAstrix</name>
     <version>1.0</version>
-    <vendor email="support@avanza.se" url="http://www.avanza.se">Avanza</vendor>
+    <vendor email="athos@live.se" url="https://github.com/ath0s/IntelliAstrix">Daniel Bergholm</vendor>
 
     <description><![CDATA[
       Plugin for Astrix context
