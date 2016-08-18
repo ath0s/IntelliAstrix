@@ -7,6 +7,8 @@ IntelliJ Plugin for [Astrix](https://github.com/AvanzaBank/astrix)
 * Link from bean declaration to bean retrievals (so far only when bean declaration is in current module)
 
 ## In progress
+* Tests...
+* Build with Gradle and [gradle-intellij-plugin](https://github.com/JetBrains/gradle-intellij-plugin)
 * Use of qualifier
 * Link from bean declaration in dependency library to any module that has it in its classpath
 
