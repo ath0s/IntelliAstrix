@@ -6,10 +6,15 @@ import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiMethodCallExpression;
 import com.intellij.psi.PsiReferenceExpression;
+import com.intellij.psi.PsiType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Optional;
+
+import static com.avanza.astrix.intellij.AstrixContextUtility.findBeanDeclaration;
+import static com.avanza.astrix.intellij.AstrixContextUtility.isAstrixBeanRetriever;
 
 public class AstrixContextGetterLineMarker extends RelatedItemLineMarkerProvider {
     private final Option getterOption = new Option("astrix.getter", "Astrix getter", Icons.Gutter.asterisk);
@@ -19,16 +24,14 @@ public class AstrixContextGetterLineMarker extends RelatedItemLineMarkerProvider
         PsiElement parent;
         if (element instanceof PsiReferenceExpression && getterOption.isEnabled() && (parent = element.getParent()) instanceof PsiMethodCallExpression) {
             PsiMethodCallExpression psiMethodCallExpression = (PsiMethodCallExpression) parent;
-            AstrixContextUtility utility = new AstrixContextUtility();
 
-            if (utility.isAstrixBeanRetriever(psiMethodCallExpression.resolveMethod())) {
-                utility.findBeanDeclaration(psiMethodCallExpression.getArgumentList())
-                        .map(method -> NavigationGutterIconBuilder.create(getterOption.getIcon())
+            if (isAstrixBeanRetriever(psiMethodCallExpression.resolveMethod())) {
+                findBeanDeclaration(psiMethodCallExpression.getArgumentList())
+                        .map(method -> NavigationGutterIconBuilder.create(Icons.Gutter.asterisk)
                                 .setTarget(method.getNameIdentifier())
-                                .setTooltipText("Navigate to declaration of " + method.getReturnType().getPresentableText())
+                                .setTooltipText("Navigate to declaration of " + Optional.ofNullable(method.getReturnType()).map(PsiType::getPresentableText).orElse(""))
                                 .createLineMarkerInfo(element))
                         .ifPresent(result::add);
-
             }
         }
 

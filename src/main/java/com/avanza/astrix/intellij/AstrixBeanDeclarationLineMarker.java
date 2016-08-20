@@ -1,7 +1,8 @@
 package com.avanza.astrix.intellij;
 
-import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
-import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider;
+import com.intellij.codeInsight.daemon.LineMarkerInfo;
+import com.intellij.codeInsight.daemon.LineMarkerProviderDescriptor;
+import com.intellij.codeInsight.daemon.MergeableLineMarkerInfo;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
 import com.intellij.openapi.util.NotNullLazyValue;
 import com.intellij.psi.PsiElement;
@@ -11,30 +12,45 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 
-public class AstrixBeanDeclarationLineMarker extends RelatedItemLineMarkerProvider {
+import static com.avanza.astrix.intellij.AstrixContextUtility.findBeanUsages;
+import static com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration;
+
+public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescriptor {
     private final Option beanOption = new Option("astrix.bean", "Astrix bean", Icons.Gutter.asterisk);
 
+    @Nullable
     @Override
-    protected void collectNavigationMarkers(@NotNull PsiElement element, Collection<? super RelatedItemLineMarkerInfo> result) {
+    public LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement element) {
+        return null;
+    }
+
+    @Override
+    public void collectSlowLineMarkers(@NotNull List<PsiElement> elements, @NotNull Collection<LineMarkerInfo> result) {
+        elements.stream().map(this::collectNavigationMarkers).filter(Objects::nonNull).forEach(result::add);
+    }
+
+    @Nullable
+    private MergeableLineMarkerInfo<PsiElement> collectNavigationMarkers(@NotNull PsiElement element) {
         PsiElement parent;
         if (element instanceof PsiIdentifier && beanOption.isEnabled() && (parent = element.getParent()) instanceof PsiMethod) {
             PsiMethod method = (PsiMethod) parent;
-            AstrixContextUtility utility = new AstrixContextUtility();
 
-            if (utility.isBeanDeclaration(method)) {
-                RelatedItemLineMarkerInfo<PsiElement> lineMarkerInfo = NavigationGutterIconBuilder.create(beanOption.getIcon())
+            if (isBeanDeclaration(method)) {
+                return NavigationGutterIconBuilder.create(Icons.Gutter.asterisk)
                         .setTargets(new NotNullLazyValue<Collection<? extends PsiElement>>() {
                             @NotNull
                             @Override
                             protected Collection<? extends PsiElement> compute() {
-                                return utility.findBeanUsages(method);
+                                return findBeanUsages(method);
                             }
                         })
                         .createLineMarkerInfo(element);
-                result.add(lineMarkerInfo);
             }
         }
+        return null;
     }
 
     @Nullable
