@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
@@ -43,34 +44,32 @@ public class AstrixContextUtility {
         return classAnnotations.findAnnotation(API_PROVIDER_FQN) != null && (annotations.findAnnotation(SERVICE_FQN) != null || annotations.findAnnotation(LIBRARY_FQN) != null);
     }
 
-    public static Optional<PsiMethod> findBeanDeclaration(PsiExpressionList parameters) {
-        Module module = ModuleUtil.findModuleForPsiElement(parameters);
-        if (module == null) {
-            return Optional.empty();
-        }
-
+    public static Collection<PsiMethod> getBeanDeclarationCandidates(Module module) {
         GlobalSearchScope searchScope = module.getModuleRuntimeScope(false);
-        JavaPsiFacade javaPsiFacade = JavaPsiFacade.getInstance(parameters.getProject());
-
-        PsiType typeParameter = getTypeParameter(parameters);
-        if (typeParameter == null) {
-            return Optional.empty();
-        }
-
+        JavaPsiFacade javaPsiFacade = JavaPsiFacade.getInstance(module.getProject());
         PsiClass apiProviderAnnotation = javaPsiFacade.findClass(API_PROVIDER_FQN, searchScope);
         if (apiProviderAnnotation == null) {
-            return Optional.empty();
+            return emptyList();
         }
         return AnnotatedElementsSearch.searchPsiClasses(apiProviderAnnotation, searchScope).findAll()
                 .stream()
                 .map(PsiClass::getMethods) // TODO: getAllMethods?
                 .flatMap(Arrays::stream)
                 .filter(method -> method.getModifierList().findAnnotation(SERVICE_FQN) != null || method.getModifierList().findAnnotation(LIBRARY_FQN) != null)
-                .filter(method -> {
-                    PsiType returnType = method.getReturnType();
-                    // TODO: AstrixQualifier
-                    return returnType != null && typeParameter.isAssignableFrom(returnType);
-                }).findFirst();
+                .collect(toList());
+    }
+
+    public static Predicate<PsiMethod> isBeanDeclaration(PsiExpressionList psiExpressionList) {
+        PsiType typeParameter = getTypeParameter(psiExpressionList);
+        if (typeParameter == null) {
+            return psiMethod -> false;
+        }
+
+        return psiMethod -> {
+            PsiType returnType = psiMethod.getReturnType();
+            // TODO: AstrixQualifier
+            return returnType != null && typeParameter.isAssignableFrom(returnType);
+        };
     }
 
     public static Collection<PsiMethodCallExpression> findBeanUsages(PsiMethod method) {

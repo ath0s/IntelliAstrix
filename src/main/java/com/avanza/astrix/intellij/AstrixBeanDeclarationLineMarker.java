@@ -4,6 +4,7 @@ import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProviderDescriptor;
 import com.intellij.codeInsight.daemon.MergeableLineMarkerInfo;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.util.NotNullLazyValue;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiIdentifier;
@@ -29,6 +30,7 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
 
     @Override
     public void collectSlowLineMarkers(@NotNull List<PsiElement> elements, @NotNull Collection<LineMarkerInfo> result) {
+        ApplicationManager.getApplication().assertReadAccessAllowed();
         elements.stream().map(this::collectNavigationMarkers).filter(Objects::nonNull).forEach(result::add);
     }
 
