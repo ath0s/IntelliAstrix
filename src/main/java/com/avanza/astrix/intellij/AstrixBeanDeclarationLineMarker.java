@@ -9,6 +9,8 @@ import com.intellij.openapi.util.NotNullLazyValue;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiIdentifier;
 import com.intellij.psi.PsiMethod;
+import com.intellij.util.MergeQuery;
+import com.intellij.util.Query;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,13 +20,14 @@ import java.util.Objects;
 
 import static com.avanza.astrix.intellij.AstrixContextUtility.findBeanUsages;
 import static com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration;
+import static java.util.Collections.emptyList;
 
 public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescriptor {
     private final Option beanOption = new Option("astrix.bean", "Astrix bean", Icons.Gutter.asterisk);
 
     @Nullable
     @Override
-    public LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement element) {
+    public final LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement element) {
         return null;
     }
 
@@ -46,7 +49,10 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
                             @NotNull
                             @Override
                             protected Collection<? extends PsiElement> compute() {
-                                return findBeanUsages(method);
+                                return findBeanUsages(method).stream()
+                                                             .reduce(MergeQuery::new)
+                                                             .map(Query::findAll)
+                                                             .orElse(emptyList());
                             }
                         })
                         .createLineMarkerInfo(element);

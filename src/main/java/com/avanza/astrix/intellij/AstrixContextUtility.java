@@ -1,11 +1,15 @@
 package com.avanza.astrix.intellij;
 
+import com.avanza.astrix.intellij.query.QueryChain;
 import com.intellij.openapi.module.Module;
-import com.intellij.openapi.module.ModuleUtil;
+import com.intellij.openapi.module.ModuleManager;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.searches.AnnotatedElementsSearch;
 import com.intellij.psi.search.searches.MethodReferencesSearch;
+import com.intellij.util.Query;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -72,39 +76,46 @@ public class AstrixContextUtility {
         };
     }
 
-    public static Collection<PsiMethodCallExpression> findBeanUsages(PsiMethod method) {
-        Module module = ModuleUtil.findModuleForPsiElement(method);
-        if (module == null) {
+    public static Collection<Query<PsiMethodCallExpression>> findBeanUsages(PsiMethod method) {
+        PsiType returnType = method.getReturnType();
+        if (returnType == null) {
             return emptyList();
         }
 
-        GlobalSearchScope searchScope = module.getModuleRuntimeScope(false);
-        JavaPsiFacade javaPsiFacade = JavaPsiFacade.getInstance(method.getProject());
+        Project project = method.getProject();
+        VirtualFile virtualFile = method.getContainingFile().getOriginalFile().getVirtualFile();
+        Optional<GlobalSearchScope> maybeSearchScope = Arrays.stream(ModuleManager.getInstance(project).getModules())
+                                                             .map(module -> module.getModuleRuntimeScope(false))
+                                                             .filter(globalSearchScope -> globalSearchScope.contains(virtualFile))
+                                                             .reduce(GlobalSearchScope::union);
 
-        PsiClass astrixInterface = javaPsiFacade.findClass(ASTRIX_FQN, searchScope);
+        if (!maybeSearchScope.isPresent()) {
+            return emptyList();
+        }
+
+        GlobalSearchScope searchScope = maybeSearchScope.get();
+
+        JavaPsiFacade javaPsiFacade = JavaPsiFacade.getInstance(project);
+
+        PsiClass astrixInterface = javaPsiFacade.findClass(ASTRIX_FQN, GlobalSearchScope.allScope(project));
         if (astrixInterface == null) {
             return emptyList();
         }
         PsiMethod[] getBeanMethods = astrixInterface.findMethodsByName("getBean", true);
         PsiMethod[] waitForBeanMethods = astrixInterface.findMethodsByName("waitForBean", true);
-        PsiType returnType = method.getReturnType();
-        if (returnType == null) {
-            return emptyList();
-        }
+
         return Stream.concat(Arrays.stream(getBeanMethods), Arrays.stream(waitForBeanMethods))
-                .map(MethodReferencesSearch::search)
-                .flatMap(query -> query.findAll().stream())
-                .filter(PsiReferenceExpression.class::isInstance)
-                .map(PsiReferenceExpression.class::cast)
-                .map(PsiReferenceExpression::getContext)
-                .filter(PsiMethodCallExpression.class::isInstance)
-                .map(PsiMethodCallExpression.class::cast)
-                .filter(psiMethodCallExpression -> {
-                    // TODO: AstrixQualifier
-                    PsiType typeParameter = getTypeParameter(psiMethodCallExpression.getArgumentList());
-                    return typeParameter != null && typeParameter.isAssignableFrom(returnType);
-                })
-                .collect(toList());
+                     .map(psiMethod -> MethodReferencesSearch.search(psiMethod, searchScope, true))
+                     .map(query -> new QueryChain<>(query).instanceOf(PsiReferenceExpression.class)
+                                                          .map(PsiReferenceExpression::getContext)
+                                                          .instanceOf(PsiMethodCallExpression.class)
+                                                          .filter(psiMethodCallExpression -> {
+                                                              // TODO: AstrixQualifier
+                                                              PsiType typeParameter = getTypeParameter(psiMethodCallExpression.getArgumentList());
+                                                              return typeParameter != null && typeParameter.isAssignableFrom(returnType);
+                                                          })
+                                                          .query())
+                     .collect(toList());
     }
 
     @Nullable
