@@ -1,4 +1,5 @@
-# IntelliAstrix
+
+# IntelliAstrix ![Logo](https://github.com/ath0s/IntelliAstrix/raw/master/src/main/resources/icons/gutter/asterisk%402x.png)
 IntelliJ Plugin for [Astrix](https://github.com/AvanzaBank/astrix)
 
 ## Features
