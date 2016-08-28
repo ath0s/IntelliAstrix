@@ -4,6 +4,7 @@ import com.avanza.astrix.intellij.query.QueryChain;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.JavaConstantExpressionEvaluator;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.PsiSearchScopeUtil;
 import com.intellij.psi.search.searches.AnnotatedElementsSearch;
@@ -13,10 +14,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.intellij.psi.PsiAnnotation.DEFAULT_REFERENCED_METHOD_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 
@@ -25,9 +28,14 @@ public class AstrixContextUtility {
     private static final String ASTRIX_FQN = "com.avanza.astrix.context.Astrix";
     private static final String LIBRARY_FQN = "com.avanza.astrix.provider.core.Library";
     private static final String SERVICE_FQN = "com.avanza.astrix.provider.core.Service";
+    private static final String QUALIFIER_FQN = "com.avanza.astrix.provider.core.AstrixQualifier";
     private static final String API_PROVIDER_FQN = "com.avanza.astrix.provider.core.AstrixApiProvider";
 
-    public static boolean isAstrixBeanRetriever(PsiMethod method) {
+    public static boolean isAstrixBeanRetriever(@Nullable PsiMethod method) {
+        if(method == null) {
+            return false;
+        }
+
         String qualifiedClassName = Optional.ofNullable(method.getContainingClass()).map(PsiClass::getQualifiedName).orElse(null);
         String methodName = method.getName();
         return ASTRIX_FQN.equals(qualifiedClassName) &&
@@ -71,19 +79,21 @@ public class AstrixContextUtility {
         if (typeParameter == null) {
             return psiMethod -> false;
         }
-
+        String qualifierParameter = getQualifier(psiExpressionList);
         return psiMethod -> {
-            PsiType returnType = psiMethod.getReturnType();
-            // TODO: AstrixQualifier
-            return returnType != null && typeParameter.isAssignableFrom(returnType);
+            PsiType beanType = psiMethod.getReturnType();
+            String beanQualifier = getQualifier(psiMethod);
+            return beanType != null && typeParameter.isAssignableFrom(beanType) && Objects.equals(qualifierParameter, beanQualifier);
         };
     }
 
     public static Collection<Query<PsiMethodCallExpression>> findBeanUsages(PsiMethod method) {
-        PsiType returnType = method.getReturnType();
-        if (returnType == null) {
+        PsiType beanType = method.getReturnType();
+        if (beanType == null) {
             return emptyList();
         }
+
+        String beanQualifier = getQualifier(method);
 
         Project project = method.getProject();
         Optional<GlobalSearchScope> maybeSearchScope = Arrays.stream(ModuleManager.getInstance(project).getModules())
@@ -112,9 +122,10 @@ public class AstrixContextUtility {
                                                           .map(PsiReferenceExpression::getContext)
                                                           .instanceOf(PsiMethodCallExpression.class)
                                                           .filter(psiMethodCallExpression -> {
-                                                              // TODO: AstrixQualifier
-                                                              PsiType typeParameter = getTypeParameter(psiMethodCallExpression.getArgumentList());
-                                                              return typeParameter != null && typeParameter.isAssignableFrom(returnType);
+                                                              PsiExpressionList parameters = psiMethodCallExpression.getArgumentList();
+                                                              PsiType typeParameter = getTypeParameter(parameters);
+                                                              String qualifierParameter = getQualifier(parameters);
+                                                              return typeParameter != null && typeParameter.isAssignableFrom(beanType) && Objects.equals(qualifierParameter, beanQualifier);
                                                           })
                                                           .query())
                      .collect(toList());
@@ -136,4 +147,40 @@ public class AstrixContextUtility {
         return classObjectAccessExpression.getOperand().getType();
     }
 
+    @Nullable
+    private static String getQualifier(PsiExpressionList parameters) {
+        PsiExpression[] expressions = parameters.getExpressions();
+        if (expressions.length < 2) {
+            return null;
+        }
+        // assuming qualifier parameter is the second
+        PsiExpression psiExpression = expressions[1];
+
+        return resolveValue(psiExpression);
+    }
+
+    @Nullable
+    private static String getQualifier(PsiMethod method) {
+        return Optional.ofNullable(method.getModifierList().findAnnotation(QUALIFIER_FQN))
+                       .flatMap(annotation -> Optional.ofNullable(annotation.findDeclaredAttributeValue(DEFAULT_REFERENCED_METHOD_NAME)))
+                       .filter(PsiExpression.class::isInstance)
+                       .map(PsiExpression.class::cast)
+                       .map(AstrixContextUtility::resolveValue)
+                       .orElse(null);
+    }
+
+    @Nullable
+    private static String resolveValue(PsiExpression psiExpression) {
+        if(psiExpression instanceof PsiReferenceExpression) {
+            PsiReferenceExpression psiReferenceExpression = (PsiReferenceExpression) psiExpression;
+            PsiElement psiElement = psiReferenceExpression.resolve();
+            if(psiElement instanceof PsiVariable) {
+                PsiVariable psiVariable = (PsiVariable) psiElement;
+                psiExpression = psiVariable.getInitializer();
+            }
+        }
+
+        Object constantExpression = JavaConstantExpressionEvaluator.computeConstantExpression(psiExpression, false);
+        return constantExpression instanceof String? (String) constantExpression : null;
+    }
 }

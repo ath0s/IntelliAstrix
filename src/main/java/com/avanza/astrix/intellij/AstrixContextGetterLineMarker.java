@@ -68,7 +68,7 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
                 return candidates.stream()
                                  .filter(isBeanDeclaration)
                                  .findFirst()
-                                 .map(method -> NavigationGutterIconBuilder.create(icon)
+                                 .map(beanDeclarationMethod -> NavigationGutterIconBuilder.create(icon)
                                                                            .setTargets(new NotNullLazyValue<Collection<? extends PsiElement>>() {
                                                                                @NotNull
                                                                                @Override
@@ -76,7 +76,7 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
                                                                                    return candidates.stream().filter(isBeanDeclaration).collect(toList());
                                                                                }
                                                                            })
-                                                                           .setTooltipText(getTooltipText(method))
+                                                                           .setTooltipText(getTooltipText(beanDeclarationMethod))
                                                                            .createLineMarkerInfo(element));
             }
         }
