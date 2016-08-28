@@ -14,6 +14,7 @@ import com.intellij.psi.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.swing.*;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -26,7 +27,8 @@ import static com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration;
 import static java.util.stream.Collectors.toList;
 
 public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor {
-    private final Option getterOption = new Option("astrix.getter", "Astrix getter", Icons.Gutter.asterisk);
+    private final Icon icon = Icons.Gutter.asterisk;
+    private final Option getterOption = new Option("astrix.getter", "Astrix getter", icon);
 
     @Nullable
     @Override
@@ -75,7 +77,7 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
                 return candidates.stream()
                                  .filter(isBeanDeclaration(psiMethodCallExpression.getArgumentList()))
                                  .findFirst()
-                                 .map(method -> NavigationGutterIconBuilder.create(Icons.Gutter.asterisk)
+                                 .map(method -> NavigationGutterIconBuilder.create(icon)
                                                                            .setTarget(method.getNameIdentifier())
                                                                            // TODO: Indicate whether bean is a Service or a Library
                                                                            .setTooltipText("Navigate to declaration of " + Optional.ofNullable(method.getReturnType())

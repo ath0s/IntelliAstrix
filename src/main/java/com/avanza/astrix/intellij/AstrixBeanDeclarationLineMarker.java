@@ -14,6 +14,7 @@ import com.intellij.util.Query;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.swing.*;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -23,7 +24,8 @@ import static com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration;
 import static java.util.Collections.emptyList;
 
 public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescriptor {
-    private final Option beanOption = new Option("astrix.bean", "Astrix bean", Icons.Gutter.asterisk);
+    private final Icon icon = Icons.Gutter.asterisk;
+    private final Option beanOption = new Option("astrix.bean", "Astrix bean", icon);
 
     @Nullable
     @Override
@@ -44,7 +46,7 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
             PsiMethod method = (PsiMethod) parent;
 
             if (isBeanDeclaration(method)) {
-                return NavigationGutterIconBuilder.create(Icons.Gutter.asterisk)
+                return NavigationGutterIconBuilder.create(icon)
                         .setTargets(new NotNullLazyValue<Collection<? extends PsiElement>>() {
                             @NotNull
                             @Override
