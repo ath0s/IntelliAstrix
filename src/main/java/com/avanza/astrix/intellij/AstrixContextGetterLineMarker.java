@@ -5,12 +5,11 @@ import com.intellij.codeInsight.daemon.LineMarkerProviderDescriptor;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
 import com.intellij.concurrency.JobLauncher;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.module.Module;
-import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
-import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.util.NotNullLazyValue;
 import com.intellij.psi.*;
+import com.intellij.psi.search.GlobalSearchScope;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,10 +19,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
+import java.util.function.Predicate;
 
-import static com.avanza.astrix.intellij.AstrixContextUtility.isAstrixBeanRetriever;
-import static com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration;
+import static com.avanza.astrix.intellij.AstrixContextUtility.*;
 import static java.util.stream.Collectors.toList;
 
 public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor {
@@ -32,7 +30,7 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
 
     @Nullable
     @Override
-    public LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement element) {
+    public final LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement element) {
         return null;
     }
 
@@ -41,58 +39,70 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
         ApplicationManager.getApplication().assertReadAccessAllowed();
 
         if (getterOption.isEnabled()) {
-            ConcurrentMap<Module, Collection<PsiMethod>> candidatesByModule = new ConcurrentHashMap<>();
+            ConcurrentMap<GlobalSearchScope, Collection<PsiMethod>> candidatesByModule = new ConcurrentHashMap<>();
 
-            List<Computable<Optional<LineMarkerInfo>>> tasks = elements.stream()
-                                                                       .map(createLineMarkerInfoTask(candidatesByModule))
-                                                                       .collect(toList());
             final Object lock = new Object();
             ProgressIndicator indicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
-            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(tasks, indicator, true, computable -> {
-                computable.compute()
-                          .ifPresent(info -> {
-                              synchronized (lock) {
-                                  result.add(info);
-                              }
-                          });
+            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(elements, indicator, true, element -> {
+                createLineMarkerInfo(element, candidatesByModule).ifPresent(info -> {
+                    synchronized (lock) {
+                        result.add(info);
+                    }
+                });
                 return true;
             });
 
         }
     }
 
-    private Function<PsiElement, Computable<Optional<LineMarkerInfo>>> createLineMarkerInfoTask(ConcurrentMap<Module, Collection<PsiMethod>> candidatesByModule) {
-        return element -> () -> createLineMarkerInfo(element, candidatesByModule);
-    }
-
-    private Optional<LineMarkerInfo> createLineMarkerInfo(PsiElement element, ConcurrentMap<Module, Collection<PsiMethod>> candidatesByModule) {
+    private Optional<LineMarkerInfo> createLineMarkerInfo(PsiElement element, ConcurrentMap<GlobalSearchScope, Collection<PsiMethod>> candidatesByModule) {
         PsiElement parent;
         if (element instanceof PsiReferenceExpression && (parent = element.getParent()) instanceof PsiMethodCallExpression) {
             PsiMethodCallExpression psiMethodCallExpression = (PsiMethodCallExpression) parent;
 
             if (isAstrixBeanRetriever(psiMethodCallExpression.resolveMethod())) {
-                Module module = ModuleUtil.findModuleForPsiElement(element);
-                Collection<PsiMethod> candidates = candidatesByModule.computeIfAbsent(module, AstrixContextUtility::getBeanDeclarationCandidates);
-
+                GlobalSearchScope globalSearchScope = element.getResolveScope();
+                Collection<PsiMethod> candidates = candidatesByModule.computeIfAbsent(globalSearchScope,
+                                                                                      searchScope -> getBeanDeclarationCandidates(searchScope, element.getProject()));
+                Predicate<PsiMethod> isBeanDeclaration = isBeanDeclaration(psiMethodCallExpression.getArgumentList());
                 return candidates.stream()
-                                 .filter(isBeanDeclaration(psiMethodCallExpression.getArgumentList()))
+                                 .filter(isBeanDeclaration)
                                  .findFirst()
                                  .map(method -> NavigationGutterIconBuilder.create(icon)
-                                                                           .setTarget(method.getNameIdentifier())
-                                                                           // TODO: Indicate whether bean is a Service or a Library
-                                                                           .setTooltipText("Navigate to declaration of " + Optional.ofNullable(method.getReturnType())
-                                                                                                                                   .map(PsiType::getPresentableText)
-                                                                                                                                   .orElse(""))
+                                                                           .setTargets(new NotNullLazyValue<Collection<? extends PsiElement>>() {
+                                                                               @NotNull
+                                                                               @Override
+                                                                               protected Collection<? extends PsiElement> compute() {
+                                                                                   return candidates.stream().filter(isBeanDeclaration).collect(toList());
+                                                                               }
+                                                                           })
+                                                                           .setTooltipText(getTooltipText(method))
                                                                            .createLineMarkerInfo(element));
             }
         }
         return Optional.empty();
     }
 
+    private String getTooltipText(PsiMethod method) {
+        StringBuilder sb = new StringBuilder("<html><body>");
+        if(isService(method)) {
+            sb.append("<b>").append("Service").append("</b><br/>");
+        } else if(isLibrary(method)) {
+            sb.append("<b>").append("Library").append("</b><br/>");
+        }
+        sb.append("Navigate to bean declaration");
+        PsiType returnType = method.getReturnType();
+        if(returnType != null) {
+            sb.append(" of ").append(returnType.getPresentableText());
+        }
+        sb.append("</body></html>");
+        return sb.toString();
+    }
+
     @Nullable
     @Override
     public String getName() {
-        return "Astrix line markers";
+        return "Astrix bean retrieval";
     }
 
     @Override

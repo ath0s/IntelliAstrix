@@ -2,8 +2,6 @@ package com.avanza.astrix.intellij;
 
 import com.intellij.codeInspection.BaseJavaBatchLocalInspectionTool;
 import com.intellij.codeInspection.ProblemsHolder;
-import com.intellij.openapi.module.Module;
-import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.util.AtomicNotNullLazyValue;
 import com.intellij.psi.*;
 import org.jetbrains.annotations.NotNull;
@@ -31,8 +29,8 @@ public class AstrixContextGetterInspector extends BaseJavaBatchLocalInspectionTo
                 @NotNull
                 @Override
                 protected Collection<PsiMethod> compute() {
-                    Module module = ModuleUtil.findModuleForPsiElement(problemsHolder.getFile());
-                    return AstrixContextUtility.getBeanDeclarationCandidates(module);
+                    PsiFile file = problemsHolder.getFile();
+                    return AstrixContextUtility.getBeanDeclarationCandidates(file.getResolveScope(), file.getProject());
                 }
             };
         }

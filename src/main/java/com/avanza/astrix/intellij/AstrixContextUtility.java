@@ -1,12 +1,11 @@
 package com.avanza.astrix.intellij;
 
 import com.avanza.astrix.intellij.query.QueryChain;
-import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.search.PsiSearchScopeUtil;
 import com.intellij.psi.search.searches.AnnotatedElementsSearch;
 import com.intellij.psi.search.searches.MethodReferencesSearch;
 import com.intellij.util.Query;
@@ -41,26 +40,30 @@ public class AstrixContextUtility {
             return false;
         }
         PsiAnnotationOwner classAnnotations = containingClass.getModifierList();
-        if (classAnnotations == null) {
-            return false;
-        }
-        PsiAnnotationOwner annotations = method.getModifierList();
-        return classAnnotations.findAnnotation(API_PROVIDER_FQN) != null && (annotations.findAnnotation(SERVICE_FQN) != null || annotations.findAnnotation(LIBRARY_FQN) != null);
+        return classAnnotations != null && classAnnotations.findAnnotation(API_PROVIDER_FQN) != null && (isService(method) || isLibrary(method));
     }
 
-    public static Collection<PsiMethod> getBeanDeclarationCandidates(Module module) {
-        GlobalSearchScope searchScope = module.getModuleRuntimeScope(false);
-        JavaPsiFacade javaPsiFacade = JavaPsiFacade.getInstance(module.getProject());
-        PsiClass apiProviderAnnotation = javaPsiFacade.findClass(API_PROVIDER_FQN, searchScope);
+    public static boolean isService(PsiMethod method) {
+        return method.getModifierList().findAnnotation(SERVICE_FQN) != null;
+    }
+
+    public static boolean isLibrary(PsiMethod method) {
+        return method.getModifierList().findAnnotation(LIBRARY_FQN) != null;
+    }
+
+    public static Collection<PsiMethod> getBeanDeclarationCandidates(GlobalSearchScope globalSearchScope, Project project) {
+        JavaPsiFacade javaPsiFacade = JavaPsiFacade.getInstance(project);
+        PsiClass apiProviderAnnotation = javaPsiFacade.findClass(API_PROVIDER_FQN, globalSearchScope);
         if (apiProviderAnnotation == null) {
             return emptyList();
         }
-        return AnnotatedElementsSearch.searchPsiClasses(apiProviderAnnotation, searchScope).findAll()
-                .stream()
-                .map(PsiClass::getMethods) // TODO: getAllMethods?
-                .flatMap(Arrays::stream)
-                .filter(method -> method.getModifierList().findAnnotation(SERVICE_FQN) != null || method.getModifierList().findAnnotation(LIBRARY_FQN) != null)
-                .collect(toList());
+        Predicate<PsiMethod> isService = AstrixContextUtility::isService;
+        Predicate<PsiMethod> isLibrary = AstrixContextUtility::isLibrary;
+        return AnnotatedElementsSearch.searchPsiClasses(apiProviderAnnotation, globalSearchScope).findAll()
+                                      .stream()
+                                      .flatMap(psiClass -> Arrays.stream(psiClass.getMethods())) // TODO: getAllMethods?
+                                      .filter(isService.or(isLibrary))
+                                      .collect(toList());
     }
 
     public static Predicate<PsiMethod> isBeanDeclaration(PsiExpressionList psiExpressionList) {
@@ -83,10 +86,9 @@ public class AstrixContextUtility {
         }
 
         Project project = method.getProject();
-        VirtualFile virtualFile = method.getContainingFile().getOriginalFile().getVirtualFile();
         Optional<GlobalSearchScope> maybeSearchScope = Arrays.stream(ModuleManager.getInstance(project).getModules())
-                                                             .map(module -> module.getModuleRuntimeScope(false))
-                                                             .filter(globalSearchScope -> globalSearchScope.contains(virtualFile))
+                                                             .map(module -> module.getModuleRuntimeScope(true))
+                                                             .filter(globalSearchScope -> PsiSearchScopeUtil.isInScope(globalSearchScope, method))
                                                              .reduce(GlobalSearchScope::union);
 
         if (!maybeSearchScope.isPresent()) {
