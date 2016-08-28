@@ -42,7 +42,7 @@ public class AstrixContextGetterInspector extends BaseJavaBatchLocalInspectionTo
 
             PsiMethod method = expression.resolveMethod();
             if (isAstrixBeanRetriever(method) && !hasBeanDeclaration(expression.getArgumentList())) {
-                problemsHolder.registerProblem(expression.getArgumentList().getExpressions()[0], "No astrix bean declaration found.", GENERIC_ERROR_OR_WARNING);
+                problemsHolder.registerProblem(expression.getArgumentList(), "No astrix bean declaration found.", GENERIC_ERROR_OR_WARNING);
             }
         }
 

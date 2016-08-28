@@ -12,15 +12,13 @@ import com.intellij.psi.search.searches.MethodReferencesSearch;
 import com.intellij.util.Query;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.intellij.psi.PsiAnnotation.DEFAULT_REFERENCED_METHOD_NAME;
+import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 
 public class AstrixContextUtility {
@@ -30,6 +28,7 @@ public class AstrixContextUtility {
     private static final String SERVICE_FQN = "com.avanza.astrix.provider.core.Service";
     private static final String QUALIFIER_FQN = "com.avanza.astrix.provider.core.AstrixQualifier";
     private static final String API_PROVIDER_FQN = "com.avanza.astrix.provider.core.AstrixApiProvider";
+    private static final Set<String> BEAN_RETRIEVAL_METHOD_NAMES = unmodifiableSet(new TreeSet<>(asList("getBean", "waitForBean")));
 
     public static boolean isAstrixBeanRetriever(@Nullable PsiMethod method) {
         if(method == null) {
@@ -38,8 +37,7 @@ public class AstrixContextUtility {
 
         String qualifiedClassName = Optional.ofNullable(method.getContainingClass()).map(PsiClass::getQualifiedName).orElse(null);
         String methodName = method.getName();
-        return ASTRIX_FQN.equals(qualifiedClassName) &&
-                ("getBean".equals(methodName) || "waitForBean".equals(methodName));
+        return ASTRIX_FQN.equals(qualifiedClassName) && BEAN_RETRIEVAL_METHOD_NAMES.contains(methodName);
     }
 
     public static boolean isBeanDeclaration(PsiMethod method) {
@@ -113,10 +111,8 @@ public class AstrixContextUtility {
         if (astrixInterface == null) {
             return emptyList();
         }
-        PsiMethod[] getBeanMethods = astrixInterface.findMethodsByName("getBean", true);
-        PsiMethod[] waitForBeanMethods = astrixInterface.findMethodsByName("waitForBean", true);
 
-        return Stream.concat(Arrays.stream(getBeanMethods), Arrays.stream(waitForBeanMethods))
+        return BEAN_RETRIEVAL_METHOD_NAMES.stream().flatMap(methodName -> Arrays.stream(astrixInterface.findMethodsByName(methodName, true)))
                      .map(psiMethod -> MethodReferencesSearch.search(psiMethod, searchScope, true))
                      .map(query -> new QueryChain<>(query).instanceOf(PsiReferenceExpression.class)
                                                           .map(PsiReferenceExpression::getContext)
