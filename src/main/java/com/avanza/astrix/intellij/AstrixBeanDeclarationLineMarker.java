@@ -59,6 +59,7 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
 
             if (isBeanDeclaration(method)) {
                 return Optional.of(NavigationGutterIconBuilder.create(icon)
+                                                              .setEmptyPopupText("No astrix bean usages found.")
                                                               .setTargets(new NotNullLazyValue<Collection<? extends PsiElement>>() {
                                                                   @NotNull
                                                                   @Override
