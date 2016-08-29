@@ -35,7 +35,8 @@
                          language="JAVA"
                          groupName="Astrix"
                          displayName="Bean retrieval"
-                         level="ERROR"/>
+                         level="ERROR"
+                         enabledByDefault="true"/>
 
     </extensions>
 
