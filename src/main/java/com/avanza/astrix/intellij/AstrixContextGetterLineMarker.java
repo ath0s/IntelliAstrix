@@ -5,9 +5,14 @@ import com.intellij.codeInsight.daemon.LineMarkerProviderDescriptor;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
 import com.intellij.concurrency.JobLauncher;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.module.Module;
+import com.intellij.openapi.module.ModuleUtil;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
+import com.intellij.openapi.roots.ModuleFileIndex;
+import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.util.NotNullLazyValue;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 import org.jetbrains.annotations.NotNull;
@@ -60,8 +65,8 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
         if (element instanceof PsiReferenceExpression && (parent = element.getParent()) instanceof PsiMethodCallExpression) {
             PsiMethodCallExpression psiMethodCallExpression = (PsiMethodCallExpression) parent;
 
-            if (isAstrixBeanRetriever(psiMethodCallExpression.resolveMethod())) {
-                GlobalSearchScope globalSearchScope = element.getResolveScope();
+            GlobalSearchScope globalSearchScope;
+            if (isAstrixBeanRetriever(psiMethodCallExpression.resolveMethod()) && (globalSearchScope = getSearchScope(element)) != null) {
                 Collection<PsiMethod> candidates = candidatesByModule.computeIfAbsent(globalSearchScope,
                                                                                       searchScope -> getBeanDeclarationCandidates(searchScope, element.getProject()));
                 Predicate<PsiMethod> isBeanDeclaration = isBeanDeclaration(psiMethodCallExpression.getArgumentList());
@@ -81,6 +86,19 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
             }
         }
         return Optional.empty();
+    }
+
+    @Nullable
+    private GlobalSearchScope getSearchScope(PsiElement element) {
+        Module module;
+        VirtualFile virtualFile;
+        if ((module = ModuleUtil.findModuleForPsiElement(element)) == null || (virtualFile = element.getContainingFile().getVirtualFile()) == null) {
+            return null;
+        }
+
+        ModuleFileIndex fileIndex = ModuleRootManager.getInstance(module).getFileIndex();
+        boolean includeTests = fileIndex.isInTestSourceContent(virtualFile);
+        return module.getModuleRuntimeScope(includeTests);
     }
 
     private String getTooltipText(PsiMethod method) {
