@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.function.Predicate;
 
+import static com.intellij.openapi.util.text.StringUtil.trimEnd;
 import static com.intellij.psi.PsiAnnotation.DEFAULT_REFERENCED_METHOD_NAME;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -28,6 +29,7 @@ public class AstrixContextUtility {
     private static final String SERVICE_FQN = "com.avanza.astrix.provider.core.Service";
     private static final String QUALIFIER_FQN = "com.avanza.astrix.provider.core.AstrixQualifier";
     private static final String API_PROVIDER_FQN = "com.avanza.astrix.provider.core.AstrixApiProvider";
+    private static final String REACTIVE_POSTFIX = "Async";
     private static final Set<String> BEAN_RETRIEVAL_METHOD_NAMES = unmodifiableSet(new TreeSet<>(asList("getBean", "waitForBean")));
 
     public static boolean isAstrixBeanRetriever(@Nullable PsiMethod method) {
@@ -77,11 +79,23 @@ public class AstrixContextUtility {
         if (typeParameter == null) {
             return psiMethod -> false;
         }
+
+        Predicate<PsiType> isRequestedType = typeParameter::isAssignableFrom;
+
+        String canonicalText = typeParameter.getCanonicalText();
+        if(canonicalText.endsWith(REACTIVE_POSTFIX)) {
+            String nonReactiveTypeName = trimEnd(canonicalText, REACTIVE_POSTFIX);
+            PsiType nonReactiveType = PsiType.getTypeByName(nonReactiveTypeName, psiExpressionList.getProject(), typeParameter.getResolveScope());
+            isRequestedType = isRequestedType.or(nonReactiveType::isAssignableFrom);
+        }
+
+        final Predicate<PsiType> matchesType = isRequestedType;
+
         String qualifierParameter = getQualifier(psiExpressionList);
         return psiMethod -> {
             PsiType beanType = psiMethod.getReturnType();
             String beanQualifier = getQualifier(psiMethod);
-            return beanType != null && typeParameter.isAssignableFrom(beanType) && Objects.equals(qualifierParameter, beanQualifier);
+            return beanType != null && matchesType.test(beanType) && Objects.equals(qualifierParameter, beanQualifier);
         };
     }
 
