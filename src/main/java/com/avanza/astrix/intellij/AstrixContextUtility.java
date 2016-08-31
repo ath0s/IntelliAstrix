@@ -10,6 +10,7 @@ import com.intellij.psi.search.PsiSearchScopeUtil;
 import com.intellij.psi.search.searches.AnnotatedElementsSearch;
 import com.intellij.psi.search.searches.MethodReferencesSearch;
 import com.intellij.util.Query;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -80,22 +81,13 @@ public class AstrixContextUtility {
             return psiMethod -> false;
         }
 
-        Predicate<PsiType> isRequestedType = typeParameter::isAssignableFrom;
-
-        String canonicalText = typeParameter.getCanonicalText();
-        if(canonicalText.endsWith(REACTIVE_POSTFIX)) {
-            String nonReactiveTypeName = trimEnd(canonicalText, REACTIVE_POSTFIX);
-            PsiType nonReactiveType = PsiType.getTypeByName(nonReactiveTypeName, psiExpressionList.getProject(), typeParameter.getResolveScope());
-            isRequestedType = isRequestedType.or(nonReactiveType::isAssignableFrom);
-        }
-
-        final Predicate<PsiType> matchesType = isRequestedType;
+        Predicate<PsiType> isRequestedType = isSameOrReactiveType(typeParameter, psiExpressionList.getProject());
 
         String qualifierParameter = getQualifier(psiExpressionList);
         return psiMethod -> {
             PsiType beanType = psiMethod.getReturnType();
             String beanQualifier = getQualifier(psiMethod);
-            return beanType != null && matchesType.test(beanType) && Objects.equals(qualifierParameter, beanQualifier);
+            return beanType != null && isRequestedType.test(beanType) && Objects.equals(qualifierParameter, beanQualifier);
         };
     }
 
@@ -135,7 +127,9 @@ public class AstrixContextUtility {
                                                               PsiExpressionList parameters = psiMethodCallExpression.getArgumentList();
                                                               PsiType typeParameter = getTypeParameter(parameters);
                                                               String qualifierParameter = getQualifier(parameters);
-                                                              return typeParameter != null && typeParameter.isAssignableFrom(beanType) && Objects.equals(qualifierParameter, beanQualifier);
+                                                              return typeParameter != null &&
+                                                                      isSameOrReactiveType(typeParameter, parameters.getProject()).test(beanType) &&
+                                                                      Objects.equals(qualifierParameter, beanQualifier);
                                                           })
                                                           .query())
                      .collect(toList());
@@ -192,5 +186,18 @@ public class AstrixContextUtility {
 
         Object constantExpression = JavaConstantExpressionEvaluator.computeConstantExpression(psiExpression, false);
         return constantExpression instanceof String? (String) constantExpression : null;
+    }
+
+    private static Predicate<PsiType> isSameOrReactiveType(@NotNull PsiType requestedType, Project project) {
+        Predicate<PsiType> matchesType = requestedType::isAssignableFrom;
+
+        String canonicalText = requestedType.getCanonicalText();
+        if(canonicalText.endsWith(REACTIVE_POSTFIX)) {
+            String nonReactiveTypeName = trimEnd(canonicalText, REACTIVE_POSTFIX);
+            PsiType nonReactiveType = PsiType.getTypeByName(nonReactiveTypeName, project, requestedType.getResolveScope());
+            return matchesType.or(nonReactiveType::isAssignableFrom);
+        } else {
+            return matchesType;
+        }
     }
 }
