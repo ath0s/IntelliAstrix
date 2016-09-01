@@ -18,6 +18,7 @@ import java.util.function.Predicate;
 
 import static com.intellij.openapi.util.text.StringUtil.trimEnd;
 import static com.intellij.psi.PsiAnnotation.DEFAULT_REFERENCED_METHOD_NAME;
+import static com.intellij.psi.util.PsiUtil.skipParenthesizedExprDown;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableSet;
@@ -142,7 +143,7 @@ public class AstrixContextUtility {
             return null;
         }
         // assuming class parameter is the first
-        PsiExpression psiExpression = expressions[0];
+        PsiExpression psiExpression = skipParenthesizedExprDown(expressions[0]);
 
         if (!(psiExpression instanceof PsiClassObjectAccessExpression)) {
             return null;
@@ -158,7 +159,7 @@ public class AstrixContextUtility {
             return null;
         }
         // assuming qualifier parameter is the second
-        PsiExpression psiExpression = expressions[1];
+        PsiExpression psiExpression = skipParenthesizedExprDown(expressions[1]);
 
         return resolveValue(psiExpression);
     }
@@ -174,7 +175,7 @@ public class AstrixContextUtility {
     }
 
     @Nullable
-    private static String resolveValue(PsiExpression psiExpression) {
+    private static String resolveValue(@Nullable PsiExpression psiExpression) {
         if(psiExpression instanceof PsiReferenceExpression) {
             PsiReferenceExpression psiReferenceExpression = (PsiReferenceExpression) psiExpression;
             PsiElement psiElement = psiReferenceExpression.resolve();
