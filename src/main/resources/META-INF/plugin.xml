@@ -1,12 +1,8 @@
-<idea-plugin version="2">
+<idea-plugin>
     <id>com.avanza.astrix.intellij</id>
     <name>IntelliAstrix</name>
-    <version>0.1</version>
-    <vendor url="https://github.com/ath0s/IntelliAstrix">Daniel Bergholm</vendor>
-
-    <description><![CDATA[
-      Plugin for Astrix context
-    ]]></description>
+    <version>0.1.0</version>
+    <vendor url="https://github.com/ath0s">ath0s</vendor>
 
     <change-notes><![CDATA[
         <p>
@@ -19,7 +15,7 @@
         </p>
         ]]></change-notes>
 
-    <idea-version since-build="141.0"/>
+    <idea-version since-build="212"/>
 
     <depends>com.intellij.modules.java</depends>
 

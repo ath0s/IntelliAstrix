@@ -11,9 +11,12 @@ import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
 import com.intellij.openapi.roots.ModuleFileIndex;
 import com.intellij.openapi.roots.ModuleRootManager;
-import com.intellij.openapi.util.NotNullLazyValue;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.*;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiMethodCallExpression;
+import com.intellij.psi.PsiReferenceExpression;
+import com.intellij.psi.PsiType;
 import com.intellij.psi.search.GlobalSearchScope;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +29,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 
-import static com.avanza.astrix.intellij.AstrixContextUtility.*;
+import static com.avanza.astrix.intellij.AstrixContextUtility.getBeanDeclarationCandidates;
+import static com.avanza.astrix.intellij.AstrixContextUtility.isAstrixBeanRetriever;
+import static com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration;
+import static com.avanza.astrix.intellij.AstrixContextUtility.isLibrary;
+import static com.avanza.astrix.intellij.AstrixContextUtility.isService;
+import static com.intellij.openapi.util.NotNullLazyValue.lazy;
 import static java.util.stream.Collectors.toList;
 
 public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor {
@@ -35,12 +43,12 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
 
     @Nullable
     @Override
-    public final LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement element) {
+    public final LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<PsiElement> elements, @NotNull Collection<LineMarkerInfo> result) {
+    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> elements, @NotNull Collection<? super LineMarkerInfo<?>> result) {
         ApplicationManager.getApplication().assertReadAccessAllowed();
 
         if (getterOption.isEnabled()) {
@@ -48,7 +56,7 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
 
             final Object lock = new Object();
             ProgressIndicator indicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
-            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(elements, indicator, true, element -> {
+            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(elements, indicator, element -> {
                 createLineMarkerInfo(element, candidatesByModule).ifPresent(info -> {
                     synchronized (lock) {
                         result.add(info);
@@ -60,7 +68,7 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
         }
     }
 
-    private Optional<LineMarkerInfo> createLineMarkerInfo(PsiElement element, ConcurrentMap<GlobalSearchScope, Collection<PsiMethod>> candidatesByModule) {
+    private Optional<LineMarkerInfo<?>> createLineMarkerInfo(PsiElement element, ConcurrentMap<GlobalSearchScope, Collection<PsiMethod>> candidatesByModule) {
         PsiElement parent;
         if (element instanceof PsiReferenceExpression && (parent = element.getParent()) instanceof PsiMethodCallExpression) {
             PsiMethodCallExpression psiMethodCallExpression = (PsiMethodCallExpression) parent;
@@ -74,15 +82,9 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
                                  .filter(isBeanDeclaration)
                                  .findFirst()
                                  .map(beanDeclarationMethod -> NavigationGutterIconBuilder.create(icon)
-                                                                           .setTargets(new NotNullLazyValue<Collection<? extends PsiElement>>() {
-                                                                               @NotNull
-                                                                               @Override
-                                                                               protected Collection<? extends PsiElement> compute() {
-                                                                                   return candidates.stream().filter(isBeanDeclaration).collect(toList());
-                                                                               }
-                                                                           })
-                                                                           .setTooltipText(getTooltipText(beanDeclarationMethod))
-                                                                           .createLineMarkerInfo(element));
+                                                                                          .setTargets(lazy(() -> candidates.stream().filter(isBeanDeclaration).collect(toList())))
+                                                                                          .setTooltipText(getTooltipText(beanDeclarationMethod))
+                                                                                          .createLineMarkerInfo(element));
             }
         }
         return Optional.empty();
@@ -124,7 +126,7 @@ public class AstrixContextGetterLineMarker extends LineMarkerProviderDescriptor 
     }
 
     @Override
-    public Option[] getOptions() {
+    public Option @NotNull [] getOptions() {
         return new Option[]{getterOption};
     }
 }
