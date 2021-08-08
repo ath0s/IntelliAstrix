@@ -1,10 +1,16 @@
 <idea-plugin>
     <id>com.avanza.astrix.intellij</id>
     <name>IntelliAstrix</name>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <vendor url="https://github.com/ath0s">ath0s</vendor>
 
     <change-notes><![CDATA[
+        <p>
+            0.2.0
+        <ul>
+            <li>Changed: Updated for IntelliJ 2021.2</li>
+        </ul>
+        </p>
         <p>
             0.1.0
         <ul>
