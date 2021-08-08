@@ -3,7 +3,18 @@ package com.avanza.astrix.intellij;
 import com.avanza.astrix.intellij.query.QueryChain;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.*;
+import com.intellij.psi.JavaPsiFacade;
+import com.intellij.psi.PsiAnnotationOwner;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiClassObjectAccessExpression;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiExpression;
+import com.intellij.psi.PsiExpressionList;
+import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiMethodCallExpression;
+import com.intellij.psi.PsiReferenceExpression;
+import com.intellij.psi.PsiType;
+import com.intellij.psi.PsiVariable;
 import com.intellij.psi.impl.JavaConstantExpressionEvaluator;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.PsiSearchScopeUtil;
@@ -13,15 +24,17 @@ import com.intellij.util.Query;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.intellij.openapi.util.text.StringUtil.trimEnd;
 import static com.intellij.psi.PsiAnnotation.DEFAULT_REFERENCED_METHOD_NAME;
 import static com.intellij.psi.util.PsiUtil.skipParenthesizedExprDown;
-import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 
 public class AstrixContextUtility {
@@ -32,7 +45,7 @@ public class AstrixContextUtility {
     private static final String QUALIFIER_FQN = "com.avanza.astrix.provider.core.AstrixQualifier";
     private static final String API_PROVIDER_FQN = "com.avanza.astrix.provider.core.AstrixApiProvider";
     private static final String REACTIVE_POSTFIX = "Async";
-    private static final Set<String> BEAN_RETRIEVAL_METHOD_NAMES = unmodifiableSet(new TreeSet<>(asList("getBean", "waitForBean")));
+    private static final Set<String> BEAN_RETRIEVAL_METHOD_NAMES = Set.of("getBean", "waitForBean");
 
     public static boolean isAstrixBeanRetriever(@Nullable PsiMethod method) {
         if(method == null) {
@@ -106,7 +119,7 @@ public class AstrixContextUtility {
                                                              .filter(globalSearchScope -> PsiSearchScopeUtil.isInScope(globalSearchScope, method))
                                                              .reduce(GlobalSearchScope::union);
 
-        if (!maybeSearchScope.isPresent()) {
+        if (maybeSearchScope.isEmpty()) {
             return emptyList();
         }
 

@@ -1,6 +1,9 @@
 
 # IntelliAstrix ![Logo](https://github.com/ath0s/IntelliAstrix/raw/master/src/main/resources/icons/gutter/asterisk%402x.png)
+
+<!-- Plugin description -->
 IntelliJ Plugin for [Astrix](https://github.com/AvanzaBank/astrix)
+<!-- Plugin description end -->
 
 ## Features
 * Validate that beans retrieved from Astrix context are declared in the current modules runtime classpath
@@ -21,4 +24,4 @@ IntelliJ Plugin for [Astrix](https://github.com/AvanzaBank/astrix)
 ## Ideas
 * Extend Spring plugin with support for Spring beans automatically added by Astrix
 
-Icons made by [Dave Gandy](http://www.flaticon.com/authors/dave-gandy "Dave Gandy) from [www.flaticon.com](http://www.flaticon.com "Flaticon") is licensed by [CC 3.0 BY](http://creativecommons.org/licenses/by/3.0/ "Creative Commons BY 3.0")
+Icons made by [Dave Gandy](http://www.flaticon.com/authors/dave-gandy "Dave Gandy") from [www.flaticon.com](http://www.flaticon.com "Flaticon") is licensed by [CC 3.0 BY](http://creativecommons.org/licenses/by/3.0/ "Creative Commons BY 3.0")

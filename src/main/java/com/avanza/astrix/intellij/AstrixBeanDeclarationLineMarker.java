@@ -8,7 +8,6 @@ import com.intellij.concurrency.JobLauncher;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressIndicatorProvider;
-import com.intellij.openapi.util.NotNullLazyValue;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiIdentifier;
 import com.intellij.psi.PsiMethod;
@@ -22,6 +21,7 @@ import java.util.Optional;
 
 import static com.avanza.astrix.intellij.AstrixContextUtility.findBeanUsages;
 import static com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration;
+import static com.intellij.openapi.util.NotNullLazyValue.lazy;
 import static java.util.stream.Collectors.toList;
 
 public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescriptor {
@@ -30,18 +30,18 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
 
     @Nullable
     @Override
-    public final LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement element) {
+    public final LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<PsiElement> elements, @NotNull Collection<LineMarkerInfo> result) {
+    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> elements, @NotNull Collection<? super LineMarkerInfo<?>> result) {
         ApplicationManager.getApplication().assertReadAccessAllowed();
 
         if (beanOption.isEnabled()) {
             final Object lock = new Object();
             ProgressIndicator indicator = ProgressIndicatorProvider.getGlobalProgressIndicator();
-            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(elements, indicator, true, element -> {
+            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(elements, indicator, element -> {
                 createLineMarkerInfo(element).ifPresent(info -> {
                     synchronized (lock) {
                         result.add(info);
@@ -52,7 +52,7 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
         }
     }
 
-    private Optional<MergeableLineMarkerInfo> createLineMarkerInfo(@NotNull PsiElement element) {
+    private Optional<MergeableLineMarkerInfo<?>> createLineMarkerInfo(@NotNull PsiElement element) {
         PsiElement parent;
         if (element instanceof PsiIdentifier && (parent = element.getParent()) instanceof PsiMethod) {
             PsiMethod method = (PsiMethod) parent;
@@ -60,15 +60,9 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
             if (isBeanDeclaration(method)) {
                 return Optional.of(NavigationGutterIconBuilder.create(icon)
                                                               .setEmptyPopupText("No astrix bean usages found.")
-                                                              .setTargets(new NotNullLazyValue<Collection<? extends PsiElement>>() {
-                                                                  @NotNull
-                                                                  @Override
-                                                                  protected Collection<? extends PsiElement> compute() {
-                                                                      return findBeanUsages(method).parallelStream()
-                                                                                                   .flatMap(query -> query.findAll().stream())
-                                                                                                   .collect(toList());
-                                                                  }
-                                                              })
+                                                              .setTargets(lazy(() -> findBeanUsages(method).stream()
+                                                                                                           .flatMap(query -> query.findAll().stream())
+                                                                                                           .collect(toList())))
                                                               .createLineMarkerInfo(element));
             }
         }
@@ -82,7 +76,7 @@ public class AstrixBeanDeclarationLineMarker extends LineMarkerProviderDescripto
     }
 
     @Override
-    public Option[] getOptions() {
+    public Option @NotNull [] getOptions() {
         return new Option[]{beanOption};
     }
 

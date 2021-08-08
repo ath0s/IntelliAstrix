@@ -24,7 +24,6 @@ import com.intellij.util.Query;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Function;
@@ -46,14 +45,14 @@ public class MappingQuery<F, T> implements Query<T> {
     }
 
     @Override
-    public boolean forEach(@NotNull final Processor<T> consumer) {
+    public boolean forEach(@NotNull final Processor<? super T> consumer) {
         myOriginal.forEach(new MyProcessor(consumer));
         return true;
     }
 
     @NotNull
     @Override
-    public AsyncFuture<Boolean> forEachAsync(@NotNull Processor<T> consumer) {
+    public AsyncFuture<Boolean> forEachAsync(@NotNull Processor<? super T> consumer) {
         return myOriginal.forEachAsync(new MyProcessor(consumer));
     }
 
@@ -66,22 +65,11 @@ public class MappingQuery<F, T> implements Query<T> {
         return result;
     }
 
-    @NotNull
-    @Override
-    public T[] toArray(@NotNull final T[] a) {
-        return findAll().toArray(a);
-    }
-
-    @Override
-    @NotNull
-    public Iterator<T> iterator() {
-        return findAll().iterator();
-    }
 
     private class MyProcessor implements Processor<F> {
-        private final Processor<T> myConsumer;
+        private final Processor<? super T> myConsumer;
 
-        public MyProcessor(@NotNull Processor<T> consumer) {
+        MyProcessor(@NotNull Processor<? super T> consumer) {
             myConsumer = consumer;
         }
 
