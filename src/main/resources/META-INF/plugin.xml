@@ -33,6 +33,9 @@
         <codeInsight.lineMarkerProvider implementationClass="com.avanza.astrix.intellij.AstrixBeanDeclarationLineMarker"
                                         language="JAVA"/>
 
+        <lang.inspectionSuppressor implementationClass="com.avanza.astrix.intellij.AstrixBeanDeclarationUnusedInspectionSuppressor"
+                                   language="JAVA"/>
+
         <localInspection implementationClass="com.avanza.astrix.intellij.AstrixContextGetterInspector"
                          language="JAVA"
                          groupName="Astrix"

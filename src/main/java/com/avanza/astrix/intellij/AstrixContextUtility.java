@@ -26,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -105,7 +106,7 @@ public class AstrixContextUtility {
         };
     }
 
-    public static Collection<Query<PsiMethodCallExpression>> findBeanUsages(PsiMethod method) {
+    public static List<Query<PsiMethodCallExpression>> findBeanUsages(PsiMethod method) {
         PsiType beanType = method.getReturnType();
         if (beanType == null) {
             return emptyList();
