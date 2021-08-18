@@ -28,7 +28,7 @@ public class QueryChain<Result> {
 
     @SuppressWarnings("unchecked")
     public <T> QueryChain<T> map(Function<Result, T> mapper) {
-        query = new MappingQuery<>((Query<Result>) query, mapper);
+        query = new MappingQuery<>((Query<Result>) query, mapper::apply);
         return (QueryChain<T>) this;
     }
 
