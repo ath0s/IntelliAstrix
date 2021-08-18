@@ -8,6 +8,6 @@ object Icons {
         val asterisk = getIcon<Icons>("/icons/gutter/asterisk.png")
     }
 
-    private inline fun <reified T> getIcon(@Language("file-reference") path: String)  =
+    private inline fun <reified T> getIcon(@Language("file-reference") path: String) =
         IconLoader.getIcon(path, T::class.java)
 }

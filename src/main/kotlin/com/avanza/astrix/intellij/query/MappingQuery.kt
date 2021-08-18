@@ -5,7 +5,7 @@ import com.intellij.util.Processor
 import com.intellij.util.Processors
 import com.intellij.util.Query
 
-class MappingQuery<F, T>(
+internal class MappingQuery<F, T>(
     private val original: Query<F>,
     private val mapper: (F) -> T
 ) : Query<T> {

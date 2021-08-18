@@ -1,8 +1,28 @@
 # Default detekt configuration:
 # https://github.com/detekt/detekt/blob/master/detekt-core/src/main/resources/default-detekt-config.yml
 
+complexity:
+  TooManyFunctions:
+    ignorePrivate: true
+
 formatting:
+  FinalNewline:
+    active: false
   Indentation:
-    continuationIndentSize: 8
+    continuationIndentSize: 4
+  MaximumLineLength:
+    maxLineLength: 180
+  NoBlankLineBeforeRbrace:
+    active: false
   ParameterListWrapping:
-    indentSize: 8
+    indentSize: 4
+
+style:
+  ForbiddenComment:
+    active: false
+  NewLineAtEndOfFile:
+    active: false
+  MaxLineLength:
+    maxLineLength: 180
+  ReturnCount:
+    active: false

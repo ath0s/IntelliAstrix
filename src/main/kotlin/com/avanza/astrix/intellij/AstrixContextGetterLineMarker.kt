@@ -31,8 +31,8 @@ class AstrixContextGetterLineMarker : LineMarkerProviderDescriptor() {
             val candidatesByModule = ConcurrentHashMap<GlobalSearchScope, Collection<PsiMethod>>()
             val lock = ReentrantLock()
             val indicator = ProgressIndicatorProvider.getGlobalProgressIndicator()
-            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(elements, indicator) { it ->
-                createLineMarkerInfo(it, candidatesByModule)?.apply { lock.withLock{ result.add(this) } }
+            JobLauncher.getInstance().invokeConcurrentlyUnderProgress(elements, indicator) {
+                createLineMarkerInfo(it, candidatesByModule)?.apply { lock.withLock { result.add(this) } }
                 true
             }
         }
@@ -43,7 +43,7 @@ class AstrixContextGetterLineMarker : LineMarkerProviderDescriptor() {
         if (AstrixContextUtility.isAstrixBeanRetriever(psiMethodCallExpression.resolveMethod())) {
             val globalSearchScope = getSearchScope(element) ?: return null
             val candidates = candidatesByModule.computeIfAbsent(globalSearchScope) { AstrixContextUtility.getBeanDeclarationCandidates(globalSearchScope, element.getProject()) }
-            val isBeanDeclaration = AstrixContextUtility.isBeanDeclaration(psiMethodCallExpression.argumentList)::test
+            val isBeanDeclaration = AstrixContextUtility.isBeanDeclaration(psiMethodCallExpression.argumentList)
             return candidates.firstOrNull(isBeanDeclaration)?.let {
                 NavigationGutterIconBuilder.create(astrixIcon)
                     .setTargets(lazy { candidates.filter(isBeanDeclaration) })
@@ -68,7 +68,7 @@ class AstrixContextGetterLineMarker : LineMarkerProviderDescriptor() {
             if (AstrixContextUtility.isService(method)) {
                 append("<b>", "Service", "</b><br/>")
             } else if (AstrixContextUtility.isLibrary(method)) {
-                append("<b>","Library","</b><br/>")
+                append("<b>", "Library", "</b><br/>")
             }
             append("Navigate to bean declaration")
             val returnType = method.returnType

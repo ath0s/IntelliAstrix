@@ -7,7 +7,12 @@ import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.util.NotNullLazyValue
 import com.intellij.openapi.util.NotNullLazyValue.atomicLazy
-import com.intellij.psi.*
+import com.intellij.psi.JavaElementVisitor
+import com.intellij.psi.PsiElementVisitor
+import com.intellij.psi.PsiExpressionList
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.search.GlobalSearchScope
 
 class AstrixContextGetterInspector : AbstractBaseJavaLocalInspectionTool() {
@@ -32,13 +37,17 @@ class AstrixContextGetterInspector : AbstractBaseJavaLocalInspectionTool() {
             super.visitMethodCallExpression(expression)
             val method = expression.resolveMethod()
             if (AstrixContextUtility.isAstrixBeanRetriever(method) && !hasBeanDeclaration(expression.argumentList)) {
-                problemsHolder.registerProblem(expression.argumentList, "No astrix bean declaration found.", GENERIC_ERROR_OR_WARNING)
+                problemsHolder.registerProblem(
+                    expression.argumentList,
+                    "No astrix bean declaration found.",
+                    GENERIC_ERROR_OR_WARNING
+                )
             }
         }
 
         private fun hasBeanDeclaration(psiExpressionList: PsiExpressionList): Boolean {
-            val isBeanDeclaration = AstrixContextUtility.isBeanDeclaration(psiExpressionList)::test
-            return candidates.value.any ( isBeanDeclaration )
+            val isBeanDeclaration = AstrixContextUtility.isBeanDeclaration(psiExpressionList)
+            return candidates.value.any(isBeanDeclaration)
         }
 
     }
