@@ -1,5 +1,7 @@
 package com.avanza.astrix.intellij
 
+import com.avanza.astrix.intellij.AstrixContextUtility.findBeanUsages
+import com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration
 import com.intellij.codeInspection.InspectionSuppressor
 import com.intellij.codeInspection.SuppressQuickFix
 import com.intellij.codeInspection.deadCode.UnusedDeclarationInspectionBase.ALTERNATIVE_ID
@@ -18,10 +20,10 @@ class AstrixBeanDeclarationUnusedInspectionSuppressor : InspectionSuppressor {
             return false
         }
         val method = element.parent as? PsiMethod ?: return false
-        if (!AstrixContextUtility.isBeanDeclaration(method)) {
+        if (!method.isBeanDeclaration) {
             return false
         }
-        return !JobLauncher.getInstance().invokeConcurrentlyUnderProgress(AstrixContextUtility.findBeanUsages(method), ProgressIndicatorProvider.getGlobalProgressIndicator()) {
+        return !JobLauncher.getInstance().invokeConcurrentlyUnderProgress(method.findBeanUsages(), ProgressIndicatorProvider.getGlobalProgressIndicator()) {
             it.findFirst() != null
         }
     }

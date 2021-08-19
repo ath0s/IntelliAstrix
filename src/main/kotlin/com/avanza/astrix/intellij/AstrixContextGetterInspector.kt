@@ -1,5 +1,6 @@
 package com.avanza.astrix.intellij
 
+import com.avanza.astrix.intellij.AstrixContextUtility.isAstrixBeanRetriever
 import com.intellij.codeInspection.AbstractBaseJavaLocalInspectionTool
 import com.intellij.codeInspection.ProblemHighlightType.GENERIC_ERROR_OR_WARNING
 import com.intellij.codeInspection.ProblemsHolder
@@ -25,7 +26,7 @@ class AstrixContextGetterInspector : AbstractBaseJavaLocalInspectionTool() {
 
         private val candidates: NotNullLazyValue<Collection<PsiMethod>> = atomicLazy {
             val file = problemsHolder.file
-            val globalSearchScope = getSearchScope(file)
+            val globalSearchScope = file.getSearchScope()
             if (globalSearchScope == null) {
                 emptyList()
             } else {
@@ -36,7 +37,7 @@ class AstrixContextGetterInspector : AbstractBaseJavaLocalInspectionTool() {
         override fun visitMethodCallExpression(expression: PsiMethodCallExpression) {
             super.visitMethodCallExpression(expression)
             val method = expression.resolveMethod()
-            if (AstrixContextUtility.isAstrixBeanRetriever(method) && !hasBeanDeclaration(expression.argumentList)) {
+            if (method?.isAstrixBeanRetriever == true && !expression.argumentList.hasBeanDeclaration) {
                 problemsHolder.registerProblem(
                     expression.argumentList,
                     "No astrix bean declaration found.",
@@ -45,16 +46,17 @@ class AstrixContextGetterInspector : AbstractBaseJavaLocalInspectionTool() {
             }
         }
 
-        private fun hasBeanDeclaration(psiExpressionList: PsiExpressionList): Boolean {
-            val isBeanDeclaration = AstrixContextUtility.isBeanDeclaration(psiExpressionList)
-            return candidates.value.any(isBeanDeclaration)
-        }
+        private val PsiExpressionList.hasBeanDeclaration: Boolean
+            get() {
+                val isBeanDeclaration = AstrixContextUtility.isBeanDeclaration(this)
+                return candidates.value.any(isBeanDeclaration)
+            }
 
     }
 
-    private fun getSearchScope(file: PsiFile): GlobalSearchScope? {
-        val virtualFile = file.virtualFile ?: return null
-        val module = ModuleUtil.findModuleForFile(virtualFile, file.project) ?: return null
+    private fun PsiFile.getSearchScope(): GlobalSearchScope? {
+        val virtualFile = virtualFile ?: return null
+        val module = ModuleUtil.findModuleForFile(virtualFile, project) ?: return null
         val fileIndex = ModuleRootManager.getInstance(module).fileIndex
         val includeTests = fileIndex.isInTestSourceContent(virtualFile)
         return module.getModuleRuntimeScope(includeTests)

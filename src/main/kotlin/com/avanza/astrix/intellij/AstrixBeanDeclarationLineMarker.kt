@@ -1,5 +1,7 @@
 package com.avanza.astrix.intellij
 
+import com.avanza.astrix.intellij.AstrixContextUtility.findBeanUsages
+import com.avanza.astrix.intellij.AstrixContextUtility.isBeanDeclaration
 import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProviderDescriptor
 import com.intellij.codeInsight.daemon.MergeableLineMarkerInfo
@@ -35,12 +37,12 @@ class AstrixBeanDeclarationLineMarker : LineMarkerProviderDescriptor() {
 
     private fun createLineMarkerInfo(element: PsiElement): MergeableLineMarkerInfo<*>? {
         val method = (element as? PsiIdentifier)?.parent as? PsiMethod ?: return null
-        if (AstrixContextUtility.isBeanDeclaration(method)) {
+        if (method.isBeanDeclaration) {
             return NavigationGutterIconBuilder.create(astrixIcon)
                 .setEmptyPopupText("No astrix bean usages found.")
                 .setTargets(lazy {
                     ConcurrentLinkedQueue<PsiMethodCallExpression>().apply {
-                        invokeConcurrentlyUnderProgress(AstrixContextUtility.findBeanUsages(method)) {
+                        invokeConcurrentlyUnderProgress(method.findBeanUsages()) {
                             addAll(it.findAll())
                         }
                     }

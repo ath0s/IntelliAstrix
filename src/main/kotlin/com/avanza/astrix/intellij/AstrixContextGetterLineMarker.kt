@@ -1,5 +1,8 @@
 package com.avanza.astrix.intellij
 
+import com.avanza.astrix.intellij.AstrixContextUtility.isAstrixBeanRetriever
+import com.avanza.astrix.intellij.AstrixContextUtility.isLibrary
+import com.avanza.astrix.intellij.AstrixContextUtility.isService
 import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProviderDescriptor
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder
@@ -40,7 +43,8 @@ class AstrixContextGetterLineMarker : LineMarkerProviderDescriptor() {
 
     private fun createLineMarkerInfo(element: PsiElement, candidatesByModule: ConcurrentMap<GlobalSearchScope, Collection<PsiMethod>>): LineMarkerInfo<*>? {
         val psiMethodCallExpression = (element as? PsiReferenceExpression)?.parent as? PsiMethodCallExpression ?: return null
-        if (AstrixContextUtility.isAstrixBeanRetriever(psiMethodCallExpression.resolveMethod())) {
+        val method = psiMethodCallExpression.resolveMethod()
+        if (method?.isAstrixBeanRetriever == true) {
             val globalSearchScope = getSearchScope(element) ?: return null
             val candidates = candidatesByModule.computeIfAbsent(globalSearchScope) { AstrixContextUtility.getBeanDeclarationCandidates(globalSearchScope, element.getProject()) }
             val isBeanDeclaration = AstrixContextUtility.isBeanDeclaration(psiMethodCallExpression.argumentList)
@@ -65,9 +69,9 @@ class AstrixContextGetterLineMarker : LineMarkerProviderDescriptor() {
     private fun getTooltipText(method: PsiMethod): String {
         return buildString {
             append("<html><body>")
-            if (AstrixContextUtility.isService(method)) {
+            if (method.isService) {
                 append("<b>", "Service", "</b><br/>")
-            } else if (AstrixContextUtility.isLibrary(method)) {
+            } else if (method.isLibrary) {
                 append("<b>", "Library", "</b><br/>")
             }
             append("Navigate to bean declaration")

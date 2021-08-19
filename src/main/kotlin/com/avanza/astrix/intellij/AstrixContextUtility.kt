@@ -33,28 +33,25 @@ internal object AstrixContextUtility {
     private const val REACTIVE_POSTFIX = "Async"
     private val BEAN_RETRIEVAL_METHOD_NAMES = setOf("getBean", "waitForBean")
 
-    fun isAstrixBeanRetriever(method: PsiMethod?): Boolean {
-        if (method == null) {
-            return false
+    val PsiMethod.isAstrixBeanRetriever: Boolean
+        get() {
+            val qualifiedClassName = containingClass?.qualifiedName
+            val methodName = name
+            return qualifiedClassName == ASTRIX_FQN && methodName in BEAN_RETRIEVAL_METHOD_NAMES
         }
-        val qualifiedClassName = method.containingClass?.qualifiedName
-        val methodName = method.name
-        return qualifiedClassName == ASTRIX_FQN && methodName in BEAN_RETRIEVAL_METHOD_NAMES
-    }
 
-    fun isBeanDeclaration(method: PsiMethod): Boolean {
-        val containingClass = method.containingClass ?: return false
-        val classAnnotations: PsiAnnotationOwner? = containingClass.modifierList
-        return classAnnotations?.findAnnotation(API_PROVIDER_FQN) != null && (isService(method) || isLibrary(method))
-    }
+    val PsiMethod.isBeanDeclaration: Boolean
+        get() {
+            val containingClass = containingClass ?: return false
+            val classAnnotations: PsiAnnotationOwner? = containingClass.modifierList
+            return classAnnotations?.findAnnotation(API_PROVIDER_FQN) != null && (isService || isLibrary)
+        }
 
-    fun isService(method: PsiMethod): Boolean {
-        return method.modifierList.findAnnotation(SERVICE_FQN) != null
-    }
+    val PsiMethod.isService
+        get() = modifierList.findAnnotation(SERVICE_FQN) != null
 
-    fun isLibrary(method: PsiMethod): Boolean {
-        return method.modifierList.findAnnotation(LIBRARY_FQN) != null
-    }
+    val PsiMethod.isLibrary
+        get() = modifierList.findAnnotation(LIBRARY_FQN) != null
 
     fun getBeanDeclarationCandidates(globalSearchScope: GlobalSearchScope, project: Project): Collection<PsiMethod> {
         val javaPsiFacade = JavaPsiFacade.getInstance(project)
@@ -62,7 +59,7 @@ internal object AstrixContextUtility {
         return AnnotatedElementsSearch.searchPsiClasses(apiProviderAnnotation, globalSearchScope)
             .asSequence()
             .flatMap { it.methods.asSequence() } // TODO: getAllMethods?
-            .filter { isService(it) || isLibrary(it) }
+            .filter { it.isService || it.isLibrary }
             .toList()
     }
 
@@ -77,14 +74,14 @@ internal object AstrixContextUtility {
         }
     }
 
-    fun findBeanUsages(method: PsiMethod): List<Query<PsiMethodCallExpression>> {
-        val beanType = method.returnType ?: return emptyList()
-        val beanQualifier = getQualifier(method)
-        val project = method.project
+    fun PsiMethod.findBeanUsages(): List<Query<PsiMethodCallExpression>> {
+        val beanType = returnType ?: return emptyList()
+        val beanQualifier = getQualifier(this)
+        val project = project
         val searchScope = ModuleManager.getInstance(project).modules
             .asSequence()
             .map { it.getModuleRuntimeScope(true) }
-            .filter { PsiSearchScopeUtil.isInScope(it, method) }
+            .filter { PsiSearchScopeUtil.isInScope(it, this) }
             .reduceOrNull(GlobalSearchScope::union) ?: return emptyList()
 
         val javaPsiFacade = JavaPsiFacade.getInstance(project)
